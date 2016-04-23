@@ -587,11 +587,12 @@ class WitAiSTT(AbstractSTTEngine):
 
     def transcribe(self, fp):
         data = fp.read()
-        r = requests.post('https://api.wit.ai/speech?v=20150101',
+        r = requests.post('https://api.wit.ai/speech?v=20160314',
                           data=data,
                           headers=self.headers)
         try:
             r.raise_for_status()
+            outcomes = r.json()['outcomes']
             text = r.json()['_text']
         except requests.exceptions.HTTPError:
             self._logger.critical('Request failed with response: %r',
@@ -611,7 +612,13 @@ class WitAiSTT(AbstractSTTEngine):
             return []
         else:
             transcribed = []
-            if text:
+            if outcomes and len(outcomes) > 0:
+                if outcomes[0]['intent']=="jasper":
+                    transcribed.append("JASPER")
+                else:
+                    for outcome in outcomes:
+                        transcribed.append(outcome)
+            elif text:
                 transcribed.append(text.upper())
             self._logger.info('Transcribed: %r', transcribed)
             return transcribed

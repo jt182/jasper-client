@@ -66,18 +66,17 @@ class Brain(object):
         """
         for module in self.modules:
             for text in texts:
-                if module.isValid(text):
-                    self._logger.debug("'%s' is a valid phrase for module " +
-                                       "'%s'", text, module.__name__)
+                if module.isValid(text['intent']):
+                    self._logger.debug("'%s' is a valid intent for module " +
+                                       "'%s'", text['intent'], module.__name__)
                     try:
                         module.handle(text, self.mic, self.profile)
                     except Exception:
                         self._logger.error('Failed to execute module',
                                            exc_info=True)
-                        self.mic.say("I'm sorry. I had some trouble with " +
-                                     "that operation. Please try again later.")
+                        self.mic.say(u"Tut mir leid. Ich hatte Probleme das Kommando auszuführen")
                     else:
-                        self._logger.debug("Handling of phrase '%s' by " +
+                        self._logger.debug("Handling of intent '%s' by " +
                                            "module '%s' completed", text,
                                            module.__name__)
                     finally:
