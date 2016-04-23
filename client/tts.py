@@ -19,9 +19,11 @@ import urllib
 import urlparse
 import requests
 from abc import ABCMeta, abstractmethod
+import shutil
 
 import argparse
 import yaml
+from test.test_pep277 import filenames
 
 try:
     import mad
@@ -107,7 +109,11 @@ class AbstractMp3TTSEngine(AbstractTTSEngine):
                 frame = mf.read()
             wav.close()
             self.play(f.name)
-
+            
+    def play_mp3_on_sonos(self, filename):
+        shutil.copy (filename, '/opt/fhem/Sonos/jasper/tts.mp3')
+        session = requests.Session()
+        session.get('http://localhost:8083/fhem/?cmd.Sonos_Kueche=set%20Sonos_Kueche%20PlayURITemp%20x-file-cifs://192.168.178.181/Sonos/jasper/tts.mp3')
 
 class DummyTTS(AbstractTTSEngine):
     """
@@ -634,6 +640,63 @@ class IvonaTTS(AbstractMp3TTSEngine):
         self.play_mp3(tmpfile)
         os.remove(tmpfile)
 
+class ISpeechTTS(AbstractMp3TTSEngine):
+    """
+    Uses the ISpeech TTS online translator
+    """
+
+    SLUG = "ispeech-tts"
+
+    def __init__(self, server="ispeech.org", voice="eurgermanfemale"):
+        super(self.__class__, self).__init__()
+        self.server = server
+        self.voice = voice
+        self.session = requests.Session()
+
+    @classmethod
+    def get_config(cls):
+        # FIXME: Replace this as soon as we have a config module
+        config = {}
+        # HMM dir
+        # Try to get hmm_dir from config
+        profile_path = jasperpath.config('profile.yml')
+        if os.path.exists(profile_path):
+            with open(profile_path, 'r') as f:
+                profile = yaml.safe_load(f)
+                if 'ispeech-tts' in profile:
+                    if 'server' in profile['ispeech-tts']:
+                        config['server'] = profile['ispeech-tts']['server']
+                    if 'voice' in profile['ispeech-tts']:
+                        config['voice'] = profile['ispeech-tts']['voice']
+
+        return config
+
+    @classmethod
+    def is_available(cls):
+        return (super(cls, cls).is_available() and
+                diagnose.check_network_connection())
+
+    def _makeurl(self, path, query={}):
+        print query
+        query_s = urllib.urlencode(query)
+        urlparts = ('http', self.server, path, query_s, '')
+        return urlparse.urlunsplit(urlparts)
+    
+    def say(self, phrase):
+        self._logger.debug("Saying '%s' with '%s'", phrase, self.SLUG)
+
+        query = {'action': 'convert',
+                 'text': phrase,
+                 'speed': '0',
+                 'voice': self.voice}
+
+        r = self.session.get(self._makeurl(u'/p/generic/getaudio', query=query))
+        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f:
+            f.write(r.content)
+            tmpfile = f.name
+        self.play_mp3(tmpfile)
+        self.play_mp3_on_sonos(tmpfile)
+        os.remove(tmpfile)
 
 def get_default_engine_slug():
     return 'osx-tts' if platform.system().lower() == 'darwin' else 'espeak-tts'
