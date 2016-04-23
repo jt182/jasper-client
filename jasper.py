@@ -108,10 +108,10 @@ class Jasper(object):
 
     def run(self):
         if 'first_name' in self.config:
-            salutation = ("How can I be of service, %s?"
+            salutation = ("Was kann ich für dich tun?, %s?"
                           % self.config["first_name"])
         else:
-            salutation = "How can I be of service?"
+            salutation = "Was kann ich für dich tun?"
         self.mic.say(salutation)
 
         conversation = Conversation("JASPER", self.mic, self.config)
